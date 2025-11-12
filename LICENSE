@@ -1,0 +1,74 @@
+MIT License
+
+Copyright (c) 2025 faffonfokhan
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+IMPORTANT NOTES REGARDING DATASETS:
+
+1. This license applies ONLY to the source code in this repository.
+
+2. The datasets used in this project have separate licenses and access restrictions:
+
+   a) TORGO Dataset:
+      - Contact: University of Toronto (complingweb@cs.toronto.edu)
+      - Citation: Rudzicz, F., Namasivayam, A. K., & Wolff, T. (2012). 
+        The TORGO database of acoustic and articulatory speech from 
+        speakers with dysarthria. Language Resources and Evaluation, 
+        46(4), 523-541.
+      - Restrictions: Research use only, no redistribution
+
+   b) EasyCall Dataset:
+      - Contact: Italian Institute of Technology (leonardo.badino@iit.it)
+      - Citation: Turrisi, R., Braccia, A., Emanuele, M., Giulietti, S., 
+        Fadiga, L., Sensi, M., & Badino, L. (2021). EasyCall corpus: 
+        a dysarthric speech dataset for phone call applications.
+      - Restrictions: Research use only, no redistribution
+
+3. Users of this code must:
+   - Obtain independent access to TORGO and EasyCall datasets
+   - Comply with all terms and conditions of dataset providers
+   - Not redistribute any dataset files
+   - Properly cite both datasets in any publications
+
+4. The OpenAI Whisper model has its own license:
+   - Model: MIT License
+   - Citation: Radford, A., et al. (2022). Robust Speech Recognition 
+     via Large-Scale Weak Supervision. arXiv:2212.04356
+
+5. For academic use:
+   - This work is intended for research and educational purposes
+   - Commercial use requires verification of all component licenses
+   - Consult with your institution's legal department for commercial applications
+
+6. Ethical considerations:
+   - This work involves speech data from people with disabilities
+   - All use must respect participant privacy and dignity
+   - Follow ethical guidelines for assistive technology research
+
+---
+
+PROJECT INFORMATION:
+
+Project: Dysarthric Speech Recognition using Whisper Fine-tuning
+Author: Naba Khan
+Institution: CityUHK GEF2024
+Repository: https://github.com/faffonfokhan/dysarthric-speech-whisper
