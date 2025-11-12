@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Fine-tune Whisper -  with absolute paths
+Fine-tune Whisper
 
 """
 
@@ -18,13 +18,21 @@ import evaluate
 from dataclasses import dataclass
 from typing import Any, Dict, List, Union
 import logging
+import gc
+import sys
 
+if sys.platform == "win32":
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
+# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(message)s',
     handlers=[
-        logging.FileHandler('training.log'),
-        logging.StreamHandler()
+        logging.FileHandler('training.log', encoding='utf-8'),
+        logging.StreamHandler(sys.stdout)
     ]
 )
 
@@ -48,13 +56,10 @@ class DataCollatorSpeechSeq2SeqWithPadding:
         return batch
 
 def load_splits():
-    """Load dataset splits with ABSOLUTE PATHS."""
-   
-    # Find base directory (try multiple locations)
+    """Load dataset splits."""
     possible_bases = [
         Path("combined_torgo_easycall"),
         Path.cwd() / "combined_torgo_easycall",
-        Path.home() / "combined_torgo_easycall",
     ]
    
     base = None
@@ -66,10 +71,9 @@ def load_splits():
     if base is None:
         raise FileNotFoundError("Cannot find combined_torgo_easycall directory!")
    
-    logging.info(f"Using base directory: {base}")
+    logging.info(f"Using base: {base}")
    
     splits_dir = base / "combined" / "splits"
-   
     datasets = {}
    
     for split in ["train", "val", "test"]:
@@ -82,25 +86,30 @@ def load_splits():
         with open(split_file, encoding='utf-8') as f:
             data = json.load(f)
        
-        # FIX PATHS TO ABSOLUTE
+        # Limit samples for memory
+        original_count = len(data)
+        if split == "train" and len(data) > 15000:
+            logging.warning(f"[WARNING] Limiting {split} to 15000 samples (was {original_count})")
+            data = data[:15000]
+       
         valid_samples = []
+        skipped = 0
+       
         for item in data:
-            # Convert to absolute path
             audio_path = Path(item['audio'])
-           
-            # If relative, make absolute
             if not audio_path.is_absolute():
                 audio_path = base / audio_path
-           
-            # Check if file exists
             if audio_path.exists():
                 item['audio'] = str(audio_path.absolute())
                 valid_samples.append(item)
             else:
-                logging.warning(f"Missing file: {audio_path}")
+                skipped += 1
        
         if not valid_samples:
             raise ValueError(f"No valid samples in {split}!")
+       
+        if skipped > 0:
+            logging.warning(f"[WARNING] Skipped {skipped} missing files in {split}")
        
         dataset = Dataset.from_dict({
             "audio": [item['audio'] for item in valid_samples],
@@ -110,12 +119,12 @@ def load_splits():
         dataset = dataset.cast_column("audio", Audio(sampling_rate=16000))
         datasets[split] = dataset
        
-        logging.info(f"Loaded {split}: {len(dataset)} samples")
+        logging.info(f"[OK] Loaded {split}: {len(dataset)} samples")
    
     return DatasetDict(datasets)
 
 def prepare_dataset(dataset_dict, processor):
-    """Prepare dataset for training."""
+    """Prepare dataset with memory optimization."""
     def prepare_batch(batch):
         audio = batch["audio"]
         input_features = processor(
@@ -130,26 +139,43 @@ def prepare_dataset(dataset_dict, processor):
    
     prepared = {}
     for split, dataset in dataset_dict.items():
+        logging.info(f"Preparing {split}...")
+       
         prepared[split] = dataset.map(
             prepare_batch,
             remove_columns=dataset.column_names,
-            desc=f"Preparing {split}"
+            desc=f"Preparing {split}",
+            batch_size=10,
+            writer_batch_size=10,
+            num_proc=1,
+            keep_in_memory=False,
+            load_from_cache_file=True
         )
+       
+        gc.collect()
+        logging.info(f"[OK] Prepared {split}: {len(prepared[split])} samples")
+   
     return DatasetDict(prepared)
 
-def finetune(epochs=15, batch_size=4, lr=5e-6):
-    """Fine-tune Whisper."""
-    print("\n" + "="*60)
-    print("FINE-TUNING WHISPER")
-    print("User: faffonfokhan")
-    print("Date: 2025-11-12 08:13:10 UTC")
-    print("="*60)
-    print(f"\nEpochs: {epochs}")
-    print(f"Batch: {batch_size}")
-    print(f"LR: {lr}")
-    print("="*60 + "\n")
+def finetune(epochs=10, batch_size=2, lr=5e-6):
+    """Fine-tune Whisper model."""
    
-    # Find output directory
+    # THIS IS WHERE PRINTING SHOULD HAPPEN - INSIDE THE FUNCTION
+    print("\n" + "="*70)
+    print(" FINE-TUNING WHISPER FOR DYSARTHRIC SPEECH")
+    print("="*70)
+    print(f" User: faffonfokhan")
+    print(f" Date: 2025-11-12 09:26:35 UTC")
+    print(f" Strategy: Multilingual Acoustic Transfer")
+    print("="*70)
+    print(f"\n Configuration:")
+    print(f"   Epochs: {epochs}")
+    print(f"   Batch size: {batch_size}")
+    print(f"   Learning rate: {lr}")
+    print(f"   Memory: Optimized (15k max samples)")
+    print("="*70 + "\n")
+   
+    # Find base directory
     possible_bases = [
         Path("combined_torgo_easycall"),
         Path.cwd() / "combined_torgo_easycall",
@@ -170,31 +196,41 @@ def finetune(epochs=15, batch_size=4, lr=5e-6):
    
     logging.info(f"Output: {output_dir}")
    
-    # Load data
+    # STEP 1: Load dataset
+    print("[1/9] Loading dataset...")
     dataset_dict = load_splits()
    
-    # Load processor
+    # STEP 2: Load processor
+    print("\n[2/9] Loading processor...")
     processor = WhisperProcessor.from_pretrained(
         "openai/whisper-base",
         task="transcribe"
     )
+    logging.info("[OK] Processor loaded")
    
-    # Prepare
+    # STEP 3: Prepare dataset
+    print("\n[3/9] Preparing dataset...")
     dataset_dict = prepare_dataset(dataset_dict, processor)
    
-    # Load model
+    # STEP 4: Load model
+    print("\n[4/9] Loading model...")
     model = WhisperForConditionalGeneration.from_pretrained("openai/whisper-base")
     model.generation_config.task = "transcribe"
     model.generation_config.forced_decoder_ids = None
+    logging.info("[OK] Model loaded")
    
-    # Data collator
+    # STEP 5: Data collator
+    print("\n[5/9] Creating data collator...")
     data_collator = DataCollatorSpeechSeq2SeqWithPadding(
         processor=processor,
         decoder_start_token_id=model.config.decoder_start_token_id
     )
+    logging.info("[OK] Data collator ready")
    
-    # Metric
+    # STEP 6: Metric
+    print("\n[6/9] Loading WER metric...")
     metric = evaluate.load("wer")
+    logging.info("[OK] Metric loaded")
    
     def compute_metrics(pred):
         pred_ids = pred.predictions
@@ -205,33 +241,38 @@ def finetune(epochs=15, batch_size=4, lr=5e-6):
         wer = 100 * metric.compute(predictions=pred_str, references=label_str)
         return {"wer": wer}
    
-    # Training args
+    # STEP 7: Training args
+    print("\n[7/9] Configuring training...")
     training_args = Seq2SeqTrainingArguments(
         output_dir=str(output_dir),
         per_device_train_batch_size=batch_size,
-        gradient_accumulation_steps=2,
+        gradient_accumulation_steps=4,
         learning_rate=lr,
-        warmup_steps=100,
+        warmup_steps=50,
         num_train_epochs=epochs,
         gradient_checkpointing=True,
-        fp16=torch.cuda.is_available(),
+        fp16=False,
         evaluation_strategy="steps",
-        eval_steps=100,
-        save_steps=200,
-        save_total_limit=3,
-        logging_steps=50,
+        eval_steps=500,
+        save_steps=500,
+        save_total_limit=2,
+        logging_steps=100,
         load_best_model_at_end=True,
         metric_for_best_model="wer",
         greater_is_better=False,
         push_to_hub=False,
         predict_with_generate=True,
         generation_max_length=225,
-        report_to=["tensorboard"],
+        report_to=[],
         remove_unused_columns=False,
-        weight_decay=0.01
+        weight_decay=0.01,
+        dataloader_num_workers=0,
+        dataloader_pin_memory=False
     )
+    logging.info("[OK] Training args set")
    
-    # Trainer
+    # STEP 8: Create trainer
+    print("\n[8/9] Creating trainer...")
     trainer = Seq2SeqTrainer(
         args=training_args,
         model=model,
@@ -241,25 +282,72 @@ def finetune(epochs=15, batch_size=4, lr=5e-6):
         compute_metrics=compute_metrics,
         tokenizer=processor.feature_extractor
     )
+    logging.info("[OK] Trainer ready")
    
-    print("TRAINING STARTED\n")
+    # STEP 9: Train
+    print("\n[9/9] Starting training...")
+    print("\n" + "="*70)
+    print(" TRAINING IN PROGRESS")
+    print("="*70)
+    print(f" Duration: ~{epochs * 30} minutes on CPU")
+    print(f" Samples: {len(dataset_dict['train'])} train, {len(dataset_dict['val'])} val")
+    print(f" Log: training.log")
+    print("="*70 + "\n")
    
-    # Train
-    trainer.train()
+    try:
+        trainer.train()
+    except KeyboardInterrupt:
+        print("\n[WARNING] Interrupted")
+        logging.warning("Interrupted by user")
+    except Exception as e:
+        print(f"\n[ERROR] Failed: {e}")
+        logging.error(f"Failed: {e}")
+        raise
    
     # Save
+    print("\n" + "="*70)
+    print(" SAVING MODEL")
+    print("="*70)
+   
     trainer.save_model(str(output_dir))
     processor.save_pretrained(str(output_dir))
    
-    print("\n✅ TRAINING COMPLETE!")
-    print(f"Model: {output_dir}")
+    info = {
+        "trained_at": "2025-11-12 09:26:35 UTC",
+        "user": "faffonfokhan",
+        "datasets": "TORGO + EasyCall",
+        "strategy": "Multilingual Acoustic Transfer",
+        "epochs": epochs,
+        "batch_size": batch_size,
+        "learning_rate": lr,
+        "train_samples": len(dataset_dict["train"]),
+        "val_samples": len(dataset_dict["val"]),
+        "usage": "model.transcribe(audio, language='en')"
+    }
+   
+    with open(output_dir / "training_info.json", 'w') as f:
+        json.dump(info, f, indent=2)
+   
+    print(f"\n[OK] Saved: {output_dir}")
+   
+    print("\n" + "="*70)
+    print(" TRAINING COMPLETE!")
+    print("="*70)
+    print("\n Next:")
+    print("   python step6_convert.py")
+    print("   python step7_test.py")
+    print("\n" + "="*70 + "\n")
 
+# THIS IS THE MAIN ENTRY POINT
 if __name__ == "__main__":
     import argparse
+   
     parser = argparse.ArgumentParser()
-    parser.add_argument("--epochs", type=int, default=15)
-    parser.add_argument("--batch-size", type=int, default=4)
+    parser.add_argument("--epochs", type=int, default=10)
+    parser.add_argument("--batch-size", type=int, default=2)
     parser.add_argument("--lr", type=float, default=5e-6)
+   
     args = parser.parse_args()
    
+    # NOW CALL THE FUNCTION WITH ARGUMENTS
     finetune(args.epochs, args.batch_size, args.lr)
