@@ -1,0 +1,41 @@
+# Install in this exact order to avoid conflicts
+
+numpy==1.24.3
+pyarrow==12.0.1
+
+# Deep Learning Framework
+
+# PyTorch (CPU version - change for GPU)
+torch==2.0.1
+torchaudio==2.0.2
+
+# Machine Learning Libraries
+transformers==4.35.0
+datasets==2.14.0
+evaluate==0.4.0
+jiwer==3.0.0
+accelerate==0.21.0
+
+# Audio Processing
+librosa==0.10.0
+soundfile==0.12.0
+scipy>=1.10.0
+resampy>=0.4.2
+
+# Model Conversion and Inference
+ctranslate2>=3.20.0
+faster-whisper>=0.9.0
+
+# Utilities
+tqdm>=4.65.0
+pandas>=2.0.0
+
+# Development and Visualization (Optional)
+matplotlib>=3.7.0
+jupyter>=1.0.0
+ipython>=8.0.0
+
+# Additional Utilities
+pyyaml>=6.0
+pathlib2>=2.3.7; python_version < '3.4'
+typing-extensions>=4.5.0
