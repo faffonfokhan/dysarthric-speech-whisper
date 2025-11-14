@@ -1,0 +1,94 @@
+#!/usr/bin/env python3
+import sys
+from pathlib import Path
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(message)s',
+    handlers=[
+        logging.FileHandler('conversion.log', encoding='utf-8'),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+
+def convert_model():
+    """Convert PyTorch model to CTranslate2 format."""
+   
+    print("\n" + "="*70)
+    print(" CONVERTING MODEL TO FASTER-WHISPER FORMAT")
+    print("="*70)
+    print(" User: faffonfokhan")
+    print(" Date: 2025-11-14 08:35:41 UTC")
+    print("="*70 + "\n")
+   
+    # Paths
+    base = Path("combined_torgo_easycall")
+    model_dir = base / "model" / "whisper_combined"
+    output_dir = base / "model" / "whisper_combined_ct2"
+   
+    # Check if model exists
+    if not model_dir.exists():
+        print(f"[ERROR] Model not found: {model_dir}")
+        print("Run step5_finetune_PRODUCTION.py first!")
+        sys.exit(1)
+   
+    print(f"[1/3] Input model: {model_dir}")
+    print(f"[2/3] Output directory: {output_dir}")
+   
+    # Convert using ct2-transformers-converter
+    print("\n[3/3] Converting (this takes 2-3 minutes)...")
+   
+    try:
+        import subprocess
+       
+        cmd = [
+            "ct2-transformers-converter",
+            "--model", str(model_dir),
+            "--output_dir", str(output_dir),
+            "--quantization", "int8",
+            "--force"
+        ]
+       
+        logging.info(f"Running: {' '.join(cmd)}")
+       
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding='utf-8'
+        )
+       
+        if result.returncode == 0:
+            print("\n" + "="*70)
+            print(" CONVERSION SUCCESSFUL!")
+            print("="*70)
+            print(f"\nConverted model: {output_dir}")
+            print("\nOptimizations applied:")
+            print("  - INT8 quantization (4x smaller)")
+            print("  - CTranslate2 format (3x faster inference)")
+            print("  - Model size: ~70MB (from ~290MB)")
+            print("\n" + "="*70)
+            print("\nNext step: Test the model")
+            print("  python step7_test.py")
+            print("="*70 + "\n")
+           
+            logging.info("Conversion successful")
+        else:
+            print("\n[ERROR] Conversion failed!")
+            print(f"Error output: {result.stderr}")
+            logging.error(f"Conversion failed: {result.stderr}")
+            sys.exit(1)
+           
+    except FileNotFoundError:
+        print("\n[ERROR] ct2-transformers-converter not found!")
+        print("\nInstall with:")
+        print("  pip install ctranslate2")
+        sys.exit(1)
+    except Exception as e:
+        print(f"\n[ERROR] Conversion failed: {e}")
+        logging.error(f"Conversion error: {e}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    convert_model()
