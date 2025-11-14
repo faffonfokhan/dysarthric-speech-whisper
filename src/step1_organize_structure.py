@@ -1,7 +1,4 @@
 #!/usr/bin/env python3
-"""
-Organize combined dataset structure
-"""
 
 from pathlib import Path
 import json
