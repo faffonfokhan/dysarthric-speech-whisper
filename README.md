@@ -1,9 +1,6 @@
 # Dysarthric Speech Recognition with Whisper Fine-tuning
 
-**Author:** Naba Khan, Owais Khan  
-**Date:** 2025-11-12  
-**Institution:** CityUHK GEF2024
-
+**Authors:** Naba Khan, Owais Khan  
 Fine-tuning OpenAI Whisper for dysarthric speech recognition using TORGO and EasyCall datasets.
 
 ---
@@ -30,7 +27,7 @@ This project improves speech recognition accuracy for people with dysarthria (mo
 | Base Whisper | 40-60% |
 | Fine-tuned (TORGO only) | 60-80% |
 | Fine-tuned (EasyCall only) | 55-75% |
-| **Fine-tuned (Combined)** | **70-85%** ✅ |
+| **Fine-tuned (Combined)** | **70-85%** |
 
 ---
 
@@ -43,7 +40,6 @@ This project improves speech recognition accuracy for people with dysarthria (mo
 
 ### Setup
 
-```bash
 # Create environment
 conda create -n whisper_training python=3.10 -y
 conda activate whisper_training
