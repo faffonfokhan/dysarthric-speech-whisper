@@ -1,8 +1,4 @@
 #!/usr/bin/env python3
-"""
-Combine TORGO + EasyCall and prepare for training
-
-"""
 
 from pathlib import Path
 import json
