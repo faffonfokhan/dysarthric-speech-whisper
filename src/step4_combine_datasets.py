@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# This file merges the organized TORGO and EasyCall datasets.
 
 from pathlib import Path
 import json
@@ -8,7 +9,8 @@ import numpy as np
 from tqdm import tqdm
 
 def validate_and_process(audio_file, trans_file, dataset_name, output_dir):
-    """Validate and process audio file."""
+
+    # first, check whether transcript exists
     try:
         if not trans_file.exists():
             return None
@@ -17,30 +19,34 @@ def validate_and_process(audio_file, trans_file, dataset_name, output_dir):
         if not transcript:
             return None
        
-        # Load audio
+        # load audio, then validate duration. calculate duration by dividing audio samples by sample rate
         audio, sr = librosa.load(audio_file, sr=None)
         duration = len(audio) / sr
-       
+
+        # skip files shorter than 0.5 seconds (likely noise) and longer than 30 seconds (too long for speech recognition)
         if duration < 0.5 or duration > 30.0:
             return None
-       
+
+        # calculate root mean squared value to calculate loudness. if smaller than 0.001 (likely no noise, corrupted audio)
         rms = np.sqrt(np.mean(audio**2))
         if rms < 0.001:
             return None
        
-        # Process to 16kHz
+        # standardize audio to whisper's standard rate, and a consistent volume
         audio = librosa.load(audio_file, sr=16000, mono=True)[0]
         audio = librosa.util.normalize(audio)
        
-        # Save
+        # save processed audio
         output_name = f"{dataset_name}_{audio_file.stem}"
         output_file = output_dir / f"{output_name}.wav"
         sf.write(output_file, audio, 16000)
        
-        # Metadata
+        # create metadata, which separates healthy from dysarthric udio and lanuages (english or italian)
         is_dys = "dys" in audio_file.stem.lower()
         language = "english" if dataset_name == "torgo" else "italian"
-       
+
+        # return dictionary with audio filename, text transcript, duration (rounded to 2 decimals), dysarthric flag (boolean)
+        # source dataset and language
         return {
             "audio": str(output_file.name),
             "transcript": transcript,
@@ -49,17 +55,14 @@ def validate_and_process(audio_file, trans_file, dataset_name, output_dir):
             "dataset": dataset_name,
             "language": language
         }
-       
+
+    # handle error by skipping problematic files
     except Exception as e:
         return None
 
 def combine_datasets():
-    print("\n" + "="*60)
-    print("COMBINING TORGO + EASYCALL")
-    print("User: faffonfokhan")
-    print("Date: 2025-11-10 08:14:38 UTC")
-    print("="*60 + "\n")
-   
+
+    # define paths
     base = Path("combined_torgo_easycall")
    
     # Source directories
@@ -68,7 +71,7 @@ def combine_datasets():
     easycall_audio = base / "easycall" / "organized" / "audio"
     easycall_trans = base / "easycall" / "organized" / "transcripts"
    
-    # Output
+    # create output directories and an empty list for processed samples
     processed = base / "combined" / "processed"
     splits_dir = base / "combined" / "splits"
    
@@ -77,21 +80,23 @@ def combine_datasets():
    
     all_samples = []
    
-    # Process TORGO
-    print("Processing TORGO...")
+    # process the torgo dataset
+    print("Processing TORGO")
     torgo_files = list(torgo_audio.glob("*.wav"))
-   
+
+    # find each audio file, locate transcript, validate length, and add to all_samples if satisfiable
     for audio_file in tqdm(torgo_files, desc="TORGO"):
         trans_file = torgo_trans / f"{audio_file.stem}.txt"
         sample = validate_and_process(audio_file, trans_file, "torgo", processed)
         if sample:
             all_samples.append(sample)
-   
+
+    # count and display valid samples
     torgo_count = len([s for s in all_samples if s["dataset"] == "torgo"])
     print(f"TORGO: {torgo_count} samples")
    
-    # Process EasyCall
-    print("\nProcessing EasyCall...")
+    # same process for easycall!!!
+    print("\nProcessing EasyCall")
     easycall_files = list(easycall_audio.glob("*.wav"))
    
     for audio_file in tqdm(easycall_files, desc="EasyCall"):
@@ -103,7 +108,7 @@ def combine_datasets():
     easycall_count = len([s for s in all_samples if s["dataset"] == "easycall"])
     print(f"EasyCall: {easycall_count} samples")
    
-    # Statistics
+    # display all samples
     print()
     print("="*60)
     print("COMBINED DATASET STATISTICS")
@@ -122,7 +127,9 @@ def combine_datasets():
    
     np.random.seed(42)
     np.random.shuffle(all_samples)
-   
+
+    # Split calculation: train: 70% (first portion), val: 15% (middle portion), test: 15% (remaining)
+    
     n = len(all_samples)
     n_train = int(n * 0.70)
     n_val = int(n * 0.15)
@@ -132,7 +139,8 @@ def combine_datasets():
         "val": all_samples[n_train:n_train+n_val],
         "test": all_samples[n_train+n_val:]
     }
-   
+
+    # save split files
     for split_name, samples in splits.items():
         # Update audio paths to be relative to base
         for sample in samples:
@@ -157,12 +165,6 @@ def combine_datasets():
    
     with open(base / "metadata.json", 'w') as f:
         json.dump(metadata, f, indent=2)
-   
-    print()
-    print("="*60)
-    print("DATASET READY!")
-    print("="*60)
-    print("\nNext: python step5_finetune.py")
 
 if __name__ == "__main__":
     combine_datasets()
