@@ -1,8 +1,4 @@
 #!/usr/bin/env python3
-"""
-Organize EasyCall dataset
-
-"""
 
 from pathlib import Path
 import shutil
