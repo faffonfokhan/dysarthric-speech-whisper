@@ -1,8 +1,4 @@
 #!/usr/bin/env python3
-"""
-Organize TORGO dataset
-
-"""
 
 from pathlib import Path
 import shutil
