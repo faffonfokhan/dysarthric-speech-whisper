@@ -4,13 +4,10 @@ from pathlib import Path
 import shutil
 from tqdm import tqdm
 
+# Has the same overall aim as step2_organize_togo.py, but uses a database that has a preorganized structure,
+# and handles transcripts easier, as this database was better organized.
+
 def organize_easycall():
-    print("\n" + "="*60)
-    print("ORGANIZING EASYCALL DATASET")
-    print("User: faffonfokhan")
-    print("Date: 2025-11-10 08:14:38 UTC")
-    print("="*60 + "\n")
-   
     # Find EasyCall
     easycall_source = Path("easycall_finetuning/2_organized")
    
@@ -68,15 +65,9 @@ def organize_easycall():
         else:
             stats["control"] += 1
    
-    print()
-    print("="*60)
-    print("EASYCALL ORGANIZATION COMPLETE")
-    print("="*60)
     print(f"Total: {stats['total']}")
     print(f"Dysarthric: {stats['dysarthric']}")
     print(f"Control: {stats['control']}")
-    print()
-    print("Next: python step4_combine_datasets.py")
-
+    
 if __name__ == "__main__":
     organize_easycall()
