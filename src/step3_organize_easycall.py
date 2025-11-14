@@ -5,7 +5,7 @@ import shutil
 from tqdm import tqdm
 
 # Has the same overall aim as step2_organize_togo.py, but uses a database that has a preorganized structure,
-# and handles transcripts easier, as this database was better organized.
+# and handles transcripts easier, as this database was better organized. Code had lower complexity
 
 def organize_easycall():
     # Find EasyCall
