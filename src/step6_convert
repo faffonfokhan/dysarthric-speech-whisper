@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
+
 import sys
 from pathlib import Path
 import logging
+import argparse
+import shutil
 
 logging.basicConfig(
     level=logging.INFO,
@@ -12,39 +15,156 @@ logging.basicConfig(
     ]
 )
 
-def convert_model():
-    """Convert PyTorch model to CTranslate2 format."""
+def copy_tokenizer_files(source_dir, target_dir):
+    """Copy tokenizer files from source to target."""
+    tokenizer_files = [
+        'tokenizer.json',
+        'tokenizer_config.json',
+        'vocab.json',
+        'merges.txt',
+        'normalizer.json',
+        'added_tokens.json',
+        'special_tokens_map.json'
+    ]
+   
+    copied = []
+    for filename in tokenizer_files:
+        source_file = source_dir / filename
+        if source_file.exists():
+            target_file = target_dir / filename
+            shutil.copy2(source_file, target_file)
+            copied.append(filename)
+            logging.info(f"  Copied: {filename}")
+   
+    return copied
+
+def prepare_checkpoint(checkpoint_path, model_dir):
+    """Prepare checkpoint by copying tokenizer files if missing."""
+   
+    # Check if tokenizer files already exist
+    if (checkpoint_path / 'tokenizer.json').exists():
+        logging.info("Tokenizer files already present in checkpoint")
+        return checkpoint_path
+   
+    logging.info("Tokenizer files missing from checkpoint")
+    logging.info("Copying tokenizer files from parent model...")
+   
+    # Copy tokenizer files from parent model directory
+    copied = copy_tokenizer_files(model_dir, checkpoint_path)
+   
+    if not copied:
+        # Try copying from base Whisper model
+        logging.warning("No tokenizer in parent model, using base Whisper tokenizer")
+       
+        try:
+            from transformers import WhisperTokenizer
+           
+            tokenizer = WhisperTokenizer.from_pretrained("openai/whisper-base")
+            tokenizer.save_pretrained(str(checkpoint_path))
+           
+            logging.info("  Downloaded and saved base Whisper tokenizer")
+        except Exception as e:
+            raise RuntimeError(f"Failed to get tokenizer: {e}")
+   
+    return checkpoint_path
+
+def find_latest_checkpoint(model_dir):
+    """Find the latest checkpoint in the model directory."""
+    checkpoints = []
+   
+    for item in model_dir.iterdir():
+        if item.is_dir() and item.name.startswith('checkpoint-'):
+            try:
+                step_num = int(item.name.split('-')[1])
+                checkpoints.append((step_num, item))
+            except (ValueError, IndexError):
+                continue
+   
+    if checkpoints:
+        checkpoints.sort(key=lambda x: x[0], reverse=True)
+        return checkpoints[0][1]
+   
+    return None
+
+def convert_model(checkpoint_path=None):
+    """Convert PyTorch checkpoint to CTranslate2 format."""
    
     print("\n" + "="*70)
-    print(" CONVERTING MODEL TO FASTER-WHISPER FORMAT")
+    print(" CONVERTING WHISPER CHECKPOINT TO FASTER-WHISPER FORMAT")
     print("="*70)
     print(" User: faffonfokhan")
-    print(" Date: 2025-11-14 08:35:41 UTC")
+    print(" Date: 2025-11-14 10:39:18 UTC")
     print("="*70 + "\n")
    
-    # Paths
+    # Base paths
     base = Path("combined_torgo_easycall")
     model_dir = base / "model" / "whisper_combined"
-    output_dir = base / "model" / "whisper_combined_ct2"
    
-    # Check if model exists
+    # Check if model directory exists
     if not model_dir.exists():
-        print(f"[ERROR] Model not found: {model_dir}")
-        print("Run step5_finetune_PRODUCTION.py first!")
+        print(f"[ERROR] Model directory not found: {model_dir}")
+        print("\nRun step5_finetune_PRODUCTION.py first!")
         sys.exit(1)
    
-    print(f"[1/3] Input model: {model_dir}")
-    print(f"[2/3] Output directory: {output_dir}")
+    # Determine source model
+    if checkpoint_path:
+        source_path = Path(checkpoint_path)
+        if not source_path.is_absolute():
+            source_path = model_dir / checkpoint_path
+    else:
+        # Auto-detect latest checkpoint
+        source_path = find_latest_checkpoint(model_dir)
+        if source_path is None:
+            print(f"[ERROR] No checkpoint found in: {model_dir}")
+            print("\nAvailable items:")
+            for item in model_dir.iterdir():
+                if item.is_dir():
+                    print(f"  - {item.name}")
+            print("\nSpecify checkpoint: --checkpoint checkpoint-1000")
+            sys.exit(1)
+        logging.info(f"Found latest checkpoint: {source_path.name}")
    
-    # Convert using ct2-transformers-converter
-    print("\n[3/3] Converting (this takes 2-3 minutes)...")
+    # Verify source exists
+    if not source_path.exists():
+        print(f"[ERROR] Checkpoint not found: {source_path}")
+        sys.exit(1)
+   
+    # Check for config.json
+    if not (source_path / "config.json").exists():
+        print(f"[ERROR] config.json not found in: {source_path}")
+        sys.exit(1)
+   
+    print(f"[1/5] Source checkpoint: {source_path.name}")
+    print(f"      Path: {source_path}")
+   
+    # Prepare checkpoint (copy tokenizer if needed)
+    print(f"\n[2/5] Preparing checkpoint...")
+   
+    try:
+        prepared_checkpoint = prepare_checkpoint(source_path, model_dir)
+        print(f"      ✅ Checkpoint prepared")
+    except Exception as e:
+        print(f"[ERROR] Failed to prepare checkpoint: {e}")
+        logging.error(f"Checkpoint preparation failed: {e}")
+        sys.exit(1)
+   
+    # Output directory
+    checkpoint_name = source_path.name
+    output_name = f"whisper_combined_{checkpoint_name}_ct2"
+    output_dir = base / "model" / output_name
+   
+    print(f"\n[3/5] Output directory: {output_dir}")
+    print(f"[4/5] Quantization: INT8 (4x smaller, 3x faster)")
+   
+    # Convert
+    print(f"\n[5/5] Converting (2-3 minutes)...")
    
     try:
         import subprocess
        
         cmd = [
             "ct2-transformers-converter",
-            "--model", str(model_dir),
+            "--model", str(prepared_checkpoint),
             "--output_dir", str(output_dir),
             "--quantization", "int8",
             "--force"
@@ -63,32 +183,125 @@ def convert_model():
             print("\n" + "="*70)
             print(" CONVERSION SUCCESSFUL!")
             print("="*70)
-            print(f"\nConverted model: {output_dir}")
-            print("\nOptimizations applied:")
-            print("  - INT8 quantization (4x smaller)")
-            print("  - CTranslate2 format (3x faster inference)")
-            print("  - Model size: ~70MB (from ~290MB)")
+            print(f"\nSource: {source_path.name}")
+            print(f"Output: {output_dir}")
+            print("\nOptimizations:")
+            print("  ✅ INT8 quantization (4x smaller)")
+            print("  ✅ CTranslate2 format (3x faster)")
+            print("  ✅ Model size: ~70MB")
+           
+            # Save metadata
+            import json
+            metadata = {
+                "converted_from": str(source_path),
+                "checkpoint": source_path.name,
+                "output_dir": str(output_dir),
+                "quantization": "int8",
+                "converted_at": "2025-11-14 10:39:18 UTC",
+                "user": "faffonfokhan"
+            }
+           
+            metadata_file = output_dir / "conversion_info.json"
+            with open(metadata_file, 'w', encoding='utf-8') as f:
+                json.dump(metadata, f, indent=2)
+           
+            print(f"\nMetadata: {metadata_file}")
+           
             print("\n" + "="*70)
-            print("\nNext step: Test the model")
-            print("  python step7_test.py")
-            print("="*70 + "\n")
+            print(" NEXT STEPS")
+            print("="*70)
+            print("\n1. Run GUI:")
+            print("   python assistive_speech_device_CHECKPOINT.py")
+            print("\n2. Test model:")
+            print("   python step7_test.py")
+            print("\n" + "="*70 + "\n")
            
             logging.info("Conversion successful")
+           
         else:
             print("\n[ERROR] Conversion failed!")
-            print(f"Error output: {result.stderr}")
+            print(f"\nError output:\n{result.stderr}")
             logging.error(f"Conversion failed: {result.stderr}")
             sys.exit(1)
            
     except FileNotFoundError:
         print("\n[ERROR] ct2-transformers-converter not found!")
-        print("\nInstall with:")
-        print("  pip install ctranslate2")
+        print("\nInstall: pip install ctranslate2")
         sys.exit(1)
+       
     except Exception as e:
         print(f"\n[ERROR] Conversion failed: {e}")
         logging.error(f"Conversion error: {e}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
 
+def list_checkpoints():
+    """List all available checkpoints."""
+    base = Path("combined_torgo_easycall")
+    model_dir = base / "model" / "whisper_combined"
+   
+    if not model_dir.exists():
+        print(f"Model directory not found: {model_dir}")
+        return
+   
+    print("\n" + "="*70)
+    print(" AVAILABLE CHECKPOINTS")
+    print("="*70 + "\n")
+   
+    checkpoints = []
+   
+    for item in model_dir.iterdir():
+        if item.is_dir() and item.name.startswith('checkpoint-'):
+            try:
+                step_num = int(item.name.split('-')[1])
+               
+                # Check for tokenizer
+                has_tokenizer = (item / 'tokenizer.json').exists()
+               
+                checkpoints.append((step_num, item, has_tokenizer))
+            except (ValueError, IndexError):
+                continue
+   
+    if checkpoints:
+        checkpoints.sort(key=lambda x: x[0])
+        print("📁 Available checkpoints:\n")
+        for step_num, path, has_tokenizer in checkpoints:
+            size = sum(f.stat().st_size for f in path.rglob('*') if f.is_file()) / (1024**2)
+            tokenizer_status = "✅ Has tokenizer" if has_tokenizer else "❌ Missing tokenizer (will auto-fix)"
+            print(f"   checkpoint-{step_num:>5} | {size:>6.1f} MB | {tokenizer_status}")
+        print()
+        print(f"Latest: checkpoint-{checkpoints[-1][0]}")
+    else:
+        print("No checkpoints found.")
+   
+    print("\n" + "="*70)
+    print(" USAGE")
+    print("="*70)
+    print("\nConvert specific checkpoint:")
+    print("  python step6_convert_checkpoint_FIXED.py --checkpoint checkpoint-1000")
+    print("\nConvert latest checkpoint:")
+    print("  python step6_convert_checkpoint_FIXED.py")
+    print("\n" + "="*70 + "\n")
+
 if __name__ == "__main__":
-    convert_model()
+    parser = argparse.ArgumentParser(
+        description="Convert Whisper checkpoint to CTranslate2 (with tokenizer fix)"
+    )
+    parser.add_argument(
+        "--checkpoint",
+        type=str,
+        help="Checkpoint to convert (e.g., checkpoint-1000)"
+    )
+    parser.add_argument(
+        "--list",
+        action="store_true",
+        help="List all available checkpoints"
+    )
+   
+    args = parser.parse_args()
+   
+    if args.list:
+        list_checkpoints()
+    else:
+        convert_model(checkpoint_path=args.checkpoint)
