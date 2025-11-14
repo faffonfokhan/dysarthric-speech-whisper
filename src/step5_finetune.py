@@ -1,8 +1,4 @@
 #!/usr/bin/env python3
-"""
-Fine-tune Whisper
-
-"""
 
 import json
 from pathlib import Path
