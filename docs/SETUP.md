@@ -97,34 +97,34 @@ pip install -r requirements.txt
 After installing dependencies, verify everything works:
 
 ```bash
-python -c "import numpy; print('✅ NumPy:', numpy.__version__)"
-python -c "import torch; print('✅ PyTorch:', torch.__version__)"
-python -c "from transformers import WhisperProcessor; print('✅ Transformers: OK')"
-python -c "from datasets import Dataset, Audio; print('✅ Datasets: OK')"
-python -c "import librosa; print('✅ Librosa:', librosa.__version__)"
+python -c "import numpy; print('NumPy:', numpy.__version__)"
+python -c "import torch; print('PyTorch:', torch.__version__)"
+python -c "from transformers import WhisperProcessor; print('Transformers: OK')"
+python -c "from datasets import Dataset, Audio; print('Datasets: OK')"
+python -c "import librosa; print('Librosa:', librosa.__version__)"
 ```
 
 **Expected output:**
 ```
-✅ NumPy: 1.24.3
-✅ PyTorch: 2.0.1+cpu
-✅ Transformers: OK
-✅ Datasets: OK
-✅ Librosa: 0.10.0
+NumPy: 1.24.3
+PyTorch: 2.0.1+cpu
+Transformers: OK
+Datasets: OK
+Librosa: 0.10.0
 ```
 
 ---
 
-## Quick Start
+## Start
 
 After setup is complete:
 
 ```bash
 # 1. Organize project structure
-python src/step1_organize.py
+python src/step1_organize_structure.py
 
 # 2. Organize TORGO dataset
-python src/step2_organize_TORGO.py
+python src/step2_organize_torgo.py
 
 # 3. Organize EasyCall dataset
 python src/step3_organize_easycall.py
@@ -133,13 +133,11 @@ python src/step3_organize_easycall.py
 python src/step4_combine_datasets.py
 
 # 5. Start training (8-24 hours on CPU)
-python src/step5_finetune.py --epochs 15 --batch-size 4
+python src/step5_finetune.py --epochs 10 --batch-size 2
 
 # 6. Convert to faster-whisper
 python src/step6_convert.py
 
-# 7. Test model
-python src/step7_test.py
 ```
 ---
 
@@ -149,17 +147,3 @@ After successful setup, see:
 - [Training Guide](TRAINING.md) - Detailed training instructions
 - [Usage Guide](USAGE.md) - How to use trained model
 - [Main README](../README.md) - Project overview
-
----
-
-## Support
-
-For issues:
-1. Check [Troubleshooting](#troubleshooting) section
-2. Open GitHub issue: https://github.com/faffonfokhan/dysarthric-speech-whisper/issues
-3. Include error messages and system info
-
----
-
-**Last Updated:** 2025-11-12  
-**Institution:** CityUHK GEF2024
