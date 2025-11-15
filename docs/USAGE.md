@@ -1,9 +1,5 @@
 # Usage Guide - Dysarthric Speech Recognition
 
-**Author:** Naba Khan  
-**Date:** 2025-11-12  
-**Institution:** CityUHK GEF2024
-
 ---
 
 ## Table of Contents
@@ -91,7 +87,7 @@ for audio_file in audio_files:
 
 ## Integration Examples
 
-### With Streamlit (Web UI, our choice)
+### With Streamlit (Web UI)
 
 ```python
 import streamlit as st
@@ -132,10 +128,13 @@ if uploaded_file is not None:
         st.write(f"Duration: {info.duration:.2f}s")
         st.write(f"Language: {info.language}")
 ```
+### With a python script that creates a GUI
+We did this.
 
+Simply run:
 **Run:**
 ```bash
-streamlit run app.py
+python assisitive_speech_device_app_finetuned.py
 ```
 ---
 
