@@ -7,7 +7,7 @@ Fine-tuning OpenAI Whisper for dysarthric speech recognition using TORGO and Eas
 
 ## Overview
 
-This project improves speech recognition accuracy for people with dysarthria (motor speech disorder) by fine-tuning OpenAI's Whisper model on specialized datasets.
+We aim tp improve speech recognition accuracy for people with dysarthria (motor speech disorder) by fine-tuning OpenAI's Whisper model on specialized datasets.
 
 ### Problem
 - Standard speech recognition: 40-60% accuracy on dysarthric speech
@@ -27,11 +27,9 @@ This project improves speech recognition accuracy for people with dysarthria (mo
 | Base Whisper | 40-60% |
 | Fine-tuned (TORGO only) | 60-80% |
 | Fine-tuned (EasyCall only) | 55-75% |
-| **Fine-tuned (Combined)** | **70-85%** |
+| **Fine-tuned (Combined,estimated)** | **70-85%** |
 
 ---
-
-## Installation
 
 ### Prerequisites
 - Python 3.10+
