@@ -1,31 +1,31 @@
-# Install in this exact order to avoid conflicts
+# Python 3.8+ required
 
-numpy==1.24.3
-pyarrow==12.0.1
-
-# Deep Learning Framework
-
-# PyTorch (CPU version - change for GPU)
+# deep learning framework (CPU version)
 torch==2.0.1
 torchaudio==2.0.2
 
-# Machine Learning Libraries
+# transformers + training
 transformers==4.35.0
 datasets==2.14.0
-evaluate==0.4.0
-jiwer==3.0.0
 accelerate==0.21.0
 
-# Audio Processing
-librosa==0.10.0
-soundfile==0.12.0
-scipy>=1.10.0
-resampy>=0.4.2
+# evaluation
+evaluate==0.4.0
+jiwer==3.0.0
 
-# Model Conversion and Inference
+# audio processing
+librosa==0.10.0
+soundfile==0.12.1
+
+# model optimization and deployment
 ctranslate2>=3.20.0
 faster-whisper>=0.9.0
 
-# Utilities
+# utilities
 tqdm>=4.65.0
-pandas>=2.0.0
+
+# for gui
+sounddevice>=0.4.6
+pywin32>=305
+gtts>=2.3.0
+pygame>=2.5.0
