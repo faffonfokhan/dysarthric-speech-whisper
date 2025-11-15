@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
 
+# this is the core training script. fine-tunes OpenAI's pretrained Whisper model on the
+# combined dysarthric speech dataset using multilingual acoustic transfer learning.
+
+# torch: PyTorch deep learning framework, transformers: Hugging Face library with Whisper model
+# evaluate: Metrics (WER - Word Error Rate), dataclasses: For data collator class
+# logging: Training logs, gc: Garbage collection (memory management)
+
+
 import json
 from pathlib import Path
 import torch
@@ -17,12 +25,13 @@ import logging
 import gc
 import sys
 
+# we needed to fix windows console encoding issues; prevents crashes if displaying italian characters or progress bars
 if sys.platform == "win32":
     import io
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
-# Configure logging
+# saves to training.log for review, displays in real-time.
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(message)s',
@@ -32,6 +41,7 @@ logging.basicConfig(
     ]
 )
 
+# the datacollator pads batches so that they are the same duration. allows for finetuning
 @dataclass
 class DataCollatorSpeechSeq2SeqWithPadding:
     processor: Any
@@ -52,7 +62,6 @@ class DataCollatorSpeechSeq2SeqWithPadding:
         return batch
 
 def load_splits():
-    """Load dataset splits."""
     possible_bases = [
         Path("combined_torgo_easycall"),
         Path.cwd() / "combined_torgo_easycall",
@@ -120,14 +129,15 @@ def load_splits():
     return DatasetDict(datasets)
 
 def prepare_dataset(dataset_dict, processor):
-    """Prepare dataset with memory optimization."""
     def prepare_batch(batch):
+        # encode input. audio features like sampling rate
         audio = batch["audio"]
         input_features = processor(
             audio["array"],
             sampling_rate=audio["sampling_rate"],
             return_tensors="pt"
         ).input_features[0]
+        # decoder (text tokens, transcript)
         labels = processor.tokenizer(batch["transcript"]).input_ids
         batch["input_features"] = input_features
         batch["labels"] = labels
@@ -135,7 +145,7 @@ def prepare_dataset(dataset_dict, processor):
    
     prepared = {}
     for split, dataset in dataset_dict.items():
-        logging.info(f"Preparing {split}...")
+        logging.info(f"Preparing {split}")
        
         prepared[split] = dataset.map(
             prepare_batch,
@@ -154,21 +164,11 @@ def prepare_dataset(dataset_dict, processor):
     return DatasetDict(prepared)
 
 def finetune(epochs=10, batch_size=2, lr=5e-6):
-    """Fine-tune Whisper model."""
-   
-    # THIS IS WHERE PRINTING SHOULD HAPPEN - INSIDE THE FUNCTION
-    print("\n" + "="*70)
-    print(" FINE-TUNING WHISPER FOR DYSARTHRIC SPEECH")
-    print("="*70)
-    print(f" User: faffonfokhan")
-    print(f" Date: 2025-11-12 09:26:35 UTC")
-    print(f" Strategy: Multilingual Acoustic Transfer")
-    print("="*70)
     print(f"\n Configuration:")
     print(f"   Epochs: {epochs}")
     print(f"   Batch size: {batch_size}")
     print(f"   Learning rate: {lr}")
-    print(f"   Memory: Optimized (15k max samples)")
+    print(f"   15k max samples")
     print("="*70 + "\n")
    
     # Find base directory
@@ -192,39 +192,40 @@ def finetune(epochs=10, batch_size=2, lr=5e-6):
    
     logging.info(f"Output: {output_dir}")
    
-    # STEP 1: Load dataset
-    print("[1/9] Loading dataset...")
+    #  1: Load dataset
+    print("Loading dataset")
     dataset_dict = load_splits()
    
-    # STEP 2: Load processor
-    print("\n[2/9] Loading processor...")
+    #  2: Load processor
+    print("\nLoading processor")
     processor = WhisperProcessor.from_pretrained(
         "openai/whisper-base",
         task="transcribe"
     )
     logging.info("[OK] Processor loaded")
    
-    # STEP 3: Prepare dataset
-    print("\n[3/9] Preparing dataset...")
+    #  3: Prepare dataset
+    print("\nPreparing dataset")
     dataset_dict = prepare_dataset(dataset_dict, processor)
    
-    # STEP 4: Load model
-    print("\n[4/9] Loading model...")
+    #  4: Load model
+    print("\nLoading model")
+    # Load pre-trained Whisper as a starting point. This is the seq2seq model (encodes audio --> decodes into text)
     model = WhisperForConditionalGeneration.from_pretrained("openai/whisper-base")
     model.generation_config.task = "transcribe"
     model.generation_config.forced_decoder_ids = None
     logging.info("[OK] Model loaded")
    
-    # STEP 5: Data collator
-    print("\n[5/9] Creating data collator...")
+    #  5: Data collator
+    print("\nCreating data collator")
     data_collator = DataCollatorSpeechSeq2SeqWithPadding(
         processor=processor,
         decoder_start_token_id=model.config.decoder_start_token_id
     )
-    logging.info("[OK] Data collator ready")
+    logging.info("Data collator ready")
    
-    # STEP 6: Metric
-    print("\n[6/9] Loading WER metric...")
+    #  6: Metric
+    print("\nLoading WER metric")
     metric = evaluate.load("wer")
     logging.info("[OK] Metric loaded")
    
@@ -238,7 +239,8 @@ def finetune(epochs=10, batch_size=2, lr=5e-6):
         return {"wer": wer}
    
     # STEP 7: Training args
-    print("\n[7/9] Configuring training...")
+    print("\nConfiguring training")
+
     training_args = Seq2SeqTrainingArguments(
         output_dir=str(output_dir),
         per_device_train_batch_size=batch_size,
@@ -268,7 +270,6 @@ def finetune(epochs=10, batch_size=2, lr=5e-6):
     logging.info("[OK] Training args set")
    
     # STEP 8: Create trainer
-    print("\n[8/9] Creating trainer...")
     trainer = Seq2SeqTrainer(
         args=training_args,
         model=model,
@@ -280,8 +281,7 @@ def finetune(epochs=10, batch_size=2, lr=5e-6):
     )
     logging.info("[OK] Trainer ready")
    
-    # STEP 9: Train
-    print("\n[9/9] Starting training...")
+    print("\n Starting training")
     print("\n" + "="*70)
     print(" TRAINING IN PROGRESS")
     print("="*70)
@@ -309,8 +309,6 @@ def finetune(epochs=10, batch_size=2, lr=5e-6):
     processor.save_pretrained(str(output_dir))
    
     info = {
-        "trained_at": "2025-11-12 09:26:35 UTC",
-        "user": "faffonfokhan",
         "datasets": "TORGO + EasyCall",
         "strategy": "Multilingual Acoustic Transfer",
         "epochs": epochs,
@@ -325,14 +323,7 @@ def finetune(epochs=10, batch_size=2, lr=5e-6):
         json.dump(info, f, indent=2)
    
     print(f"\n[OK] Saved: {output_dir}")
-   
-    print("\n" + "="*70)
     print(" TRAINING COMPLETE!")
-    print("="*70)
-    print("\n Next:")
-    print("   python step6_convert.py")
-    print("   python step7_test.py")
-    print("\n" + "="*70 + "\n")
 
 # THIS IS THE MAIN ENTRY POINT
 if __name__ == "__main__":
