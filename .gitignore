@@ -1,0 +1,90 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+venv/
+ENV/
+env/
+.venv
+
+# PyCharm
+.idea/
+
+# VSCode
+.vscode/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Model files
+*.bin
+*.safetensors
+*.onnx
+*.pt
+*.pth
+*.h5
+*.ckpt
+model.bin
+pytorch_model.bin
+
+# Dataset files 
+*.wav
+*.mp3
+*.flac
+*.m4a
+*.ogg
+combined_torgo_easycall/data/
+combined_torgo_easycall/TORGO/
+combined_torgo_easycall/EasyCall/
+
+# Model directories
+combined_torgo_easycall/model/whisper_combined/
+combined_torgo_easycall/model/whisper_combined_ct2/
+combined_torgo_easycall/model/*_ct2/
+models/
+checkpoints/
+
+# Cache directories
+combined_torgo_easycall/.cache/
+.cache/
+__pypackages__/
+
+# Logs
+*.log
+logs/
+training.log
+conversion.log
+testing.log
+training_production.log
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Hugging Face cache
+~/.cache/huggingface/
+
+# CTranslate2 cache
+.ctranslate2/
