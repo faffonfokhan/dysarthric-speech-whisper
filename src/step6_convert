@@ -16,7 +16,6 @@ logging.basicConfig(
 )
 
 def copy_tokenizer_files(source_dir, target_dir):
-    """Copy tokenizer files from source to target."""
     tokenizer_files = [
         'tokenizer.json',
         'tokenizer_config.json',
@@ -39,7 +38,6 @@ def copy_tokenizer_files(source_dir, target_dir):
     return copied
 
 def prepare_checkpoint(checkpoint_path, model_dir):
-    """Prepare checkpoint by copying tokenizer files if missing."""
    
     # Check if tokenizer files already exist
     if (checkpoint_path / 'tokenizer.json').exists():
@@ -69,7 +67,6 @@ def prepare_checkpoint(checkpoint_path, model_dir):
     return checkpoint_path
 
 def find_latest_checkpoint(model_dir):
-    """Find the latest checkpoint in the model directory."""
     checkpoints = []
    
     for item in model_dir.iterdir():
@@ -87,14 +84,6 @@ def find_latest_checkpoint(model_dir):
     return None
 
 def convert_model(checkpoint_path=None):
-    """Convert PyTorch checkpoint to CTranslate2 format."""
-   
-    print("\n" + "="*70)
-    print(" CONVERTING WHISPER CHECKPOINT TO FASTER-WHISPER FORMAT")
-    print("="*70)
-    print(" User: faffonfokhan")
-    print(" Date: 2025-11-14 10:39:18 UTC")
-    print("="*70 + "\n")
    
     # Base paths
     base = Path("combined_torgo_easycall")
@@ -142,7 +131,7 @@ def convert_model(checkpoint_path=None):
    
     try:
         prepared_checkpoint = prepare_checkpoint(source_path, model_dir)
-        print(f"      ✅ Checkpoint prepared")
+        print(f"      Checkpoint prepared")
     except Exception as e:
         print(f"[ERROR] Failed to prepare checkpoint: {e}")
         logging.error(f"Checkpoint preparation failed: {e}")
@@ -186,9 +175,9 @@ def convert_model(checkpoint_path=None):
             print(f"\nSource: {source_path.name}")
             print(f"Output: {output_dir}")
             print("\nOptimizations:")
-            print("  ✅ INT8 quantization (4x smaller)")
-            print("  ✅ CTranslate2 format (3x faster)")
-            print("  ✅ Model size: ~70MB")
+            print("  INT8 quantization (4x smaller)")
+            print("  CTranslate2 format (3x faster)")
+            print("  Model size: ~70MB")
            
             # Save metadata
             import json
@@ -268,21 +257,12 @@ def list_checkpoints():
         print("📁 Available checkpoints:\n")
         for step_num, path, has_tokenizer in checkpoints:
             size = sum(f.stat().st_size for f in path.rglob('*') if f.is_file()) / (1024**2)
-            tokenizer_status = "✅ Has tokenizer" if has_tokenizer else "❌ Missing tokenizer (will auto-fix)"
+            tokenizer_status = "Has tokenizer" if has_tokenizer else "Missing tokenizer (will auto-fix)"
             print(f"   checkpoint-{step_num:>5} | {size:>6.1f} MB | {tokenizer_status}")
         print()
         print(f"Latest: checkpoint-{checkpoints[-1][0]}")
     else:
         print("No checkpoints found.")
-   
-    print("\n" + "="*70)
-    print(" USAGE")
-    print("="*70)
-    print("\nConvert specific checkpoint:")
-    print("  python step6_convert_checkpoint_FIXED.py --checkpoint checkpoint-1000")
-    print("\nConvert latest checkpoint:")
-    print("  python step6_convert_checkpoint_FIXED.py")
-    print("\n" + "="*70 + "\n")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
