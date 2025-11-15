@@ -36,8 +36,6 @@ We aim tp improve speech recognition accuracy for people with dysarthria (motor 
 - 16GB RAM minimum
 - GPU recommended (CPU works but slower)
 
-### Setup
-
 # Create environment
 conda create -n whisper_training python=3.10 -y
 conda activate whisper_training
