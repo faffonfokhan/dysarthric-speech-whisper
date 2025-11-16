@@ -37,7 +37,6 @@ def organize_structure():
    
     print("\Structure created.")
     print(f"\nProject: {base.absolute()}")
-    print("\nNext: python step2_organize_torgo.py")
 
 if __name__ == "__main__":
     organize_structure()
