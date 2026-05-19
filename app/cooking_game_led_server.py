@@ -172,7 +172,7 @@ class CookingGameHandler:
     const HEIGHT = 16;
     const PULSE_BASE = 20;
     const PULSE_RANGE = 180;
-    const PULSE_DIVISOR = 2;
+    const PULSE_SPEED_DIVISOR = 2;
     const SNAKE_LENGTH = 18;
     const SNAKE_MIN_FADE = 30;
     const SNAKE_FADE_STEP = 14;
@@ -294,7 +294,7 @@ class CookingGameHandler:
 
     function pulse(frame) {
       const pixels = [];
-      const value = Math.round((Math.sin(frame / PULSE_DIVISOR) * 0.5 + 0.5) * PULSE_RANGE) + PULSE_BASE;
+      const value = Math.round((Math.sin(frame / PULSE_SPEED_DIVISOR) * 0.5 + 0.5) * PULSE_RANGE) + PULSE_BASE;
       for (let y = 0; y < HEIGHT; y++) {
         for (let x = 0; x < WIDTH; x++) {
           pixels.push({ x, y, r: value, g: Math.round(value * 0.4), b: 0 });
@@ -360,6 +360,7 @@ class CookingGameHandler:
         client_socket.sendall(response)
 
     def read_full_request(self, client_socket, initial_data):
+        """Read a complete HTTP request and enforce header/body size limits."""
         data = initial_data
 
         while b"\r\n\r\n" not in data:
@@ -502,8 +503,8 @@ if __name__ == "__main__":
     try:
         from cooking_game_led_config import WIFI_SSID, WIFI_PASSWORD
     except ImportError:
-        WIFI_SSID = ""
-        WIFI_PASSWORD = ""
+        WIFI_SSID = None
+        WIFI_PASSWORD = None
 
     if not WIFI_SSID or not WIFI_PASSWORD:
         print("Create app/cooking_game_led_config.py with WIFI_SSID and WIFI_PASSWORD before running.")
