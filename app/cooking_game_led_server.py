@@ -14,6 +14,7 @@ class CookingGameHandler:
     MAX_WIFI_RETRIES = 20
     MAX_HEADER_SIZE = 4096
     MAX_BODY_SIZE = 65536
+    RECV_CHUNK_SIZE = 1024
 
     # Most 16x16 NeoPixel matrices are wired serpentine.
     SERPENTINE = True
@@ -170,9 +171,12 @@ class CookingGameHandler:
   <script>
     const WIDTH = 16;
     const HEIGHT = 16;
+    const DEFAULT_ANIMATION_INTERVAL_MS = 120;
+    // Pulse animation tuning.
     const PULSE_BASE = 20;
     const PULSE_RANGE = 180;
     const PULSE_SPEED_DIVISOR = 2;
+    // Snake animation tuning.
     const SNAKE_LENGTH = 18;
     const SNAKE_MIN_FADE = 30;
     const SNAKE_FADE_STEP = 14;
@@ -229,7 +233,7 @@ class CookingGameHandler:
       }
     }
 
-    function runAnimation(frameBuilder, interval = 120) {
+    function runAnimation(frameBuilder, interval = DEFAULT_ANIMATION_INTERVAL_MS) {
       stopAnimation();
       let frame = 0;
       timer = setInterval(() => {
@@ -366,7 +370,7 @@ class CookingGameHandler:
         while b"\r\n\r\n" not in data:
             if len(data) >= self.MAX_HEADER_SIZE:
                 raise ValueError("request headers too large")
-            chunk = client_socket.recv(512)
+            chunk = client_socket.recv(self.RECV_CHUNK_SIZE)
             if not chunk:
                 return data
             data += chunk
@@ -390,7 +394,7 @@ class CookingGameHandler:
         body = data[body_start:]
 
         while len(body) < content_length:
-            chunk = client_socket.recv(1024)
+            chunk = client_socket.recv(self.RECV_CHUNK_SIZE)
             if not chunk:
                 break
             body += chunk
@@ -486,7 +490,7 @@ class CookingGameHandler:
             while True:
                 client_socket, client_addr = server_socket.accept()
                 print("Client:", client_addr)
-                request_data = client_socket.recv(1024)
+                request_data = client_socket.recv(self.RECV_CHUNK_SIZE)
                 if request_data:
                     self.handle_request(client_socket, request_data)
         except KeyboardInterrupt:
