@@ -12,6 +12,8 @@ class CookingGameHandler:
     NUM_LEDS = WIDTH * HEIGHT
     LED_PIN = 15
     MAX_WIFI_RETRIES = 20
+    MAX_HEADER_SIZE = 4096
+    MAX_BODY_SIZE = 65536
 
     # Most 16x16 NeoPixel matrices are wired serpentine.
     SERPENTINE = True
@@ -327,12 +329,13 @@ class CookingGameHandler:
             wlan.connect(ssid, password)
 
             print("Connecting to WiFi...")
-            for _ in range(self.MAX_WIFI_RETRIES):
+            for attempt in range(self.MAX_WIFI_RETRIES):
                 if wlan.isconnected():
                     ip = wlan.ifconfig()[0]
                     print("Connected! IP:", ip)
                     return ip
 
+                print("Waiting for WiFi... ({}/{})".format(attempt + 1, self.MAX_WIFI_RETRIES))
                 time.sleep(1)
 
             print("WiFi connection failed.")
@@ -360,12 +363,16 @@ class CookingGameHandler:
         data = initial_data
 
         while b"\r\n\r\n" not in data:
+            if len(data) >= self.MAX_HEADER_SIZE:
+                raise ValueError("request headers too large")
             chunk = client_socket.recv(512)
             if not chunk:
                 return data
             data += chunk
 
         headers_end = data.find(b"\r\n\r\n")
+        if headers_end > self.MAX_HEADER_SIZE:
+            raise ValueError("request headers too large")
         headers = data[:headers_end].decode("utf-8", "ignore")
         content_length = 0
 
@@ -375,6 +382,9 @@ class CookingGameHandler:
                     content_length = int(line.split(":", 1)[1].strip())
                 except (TypeError, ValueError):
                     content_length = 0
+
+        if content_length > self.MAX_BODY_SIZE:
+            raise ValueError("request body too large")
 
         body_start = headers_end + 4
         body = data[body_start:]
@@ -491,11 +501,11 @@ class CookingGameHandler:
 
 
 if __name__ == "__main__":
-    SSID = ""
-    PASSWORD = ""
+    WIFI_SSID = ""
+    WIFI_PASSWORD = ""
 
-    if not SSID or not PASSWORD:
-        print("Set SSID and PASSWORD in app/cooking_game_led_server.py before running.")
+    if not WIFI_SSID or not WIFI_PASSWORD:
+        print("Set WIFI_SSID and WIFI_PASSWORD in app/cooking_game_led_server.py before running.")
     else:
         game = CookingGameHandler()
-        game.run(SSID, PASSWORD, 8000)
+        game.run(WIFI_SSID, WIFI_PASSWORD, 8000)
