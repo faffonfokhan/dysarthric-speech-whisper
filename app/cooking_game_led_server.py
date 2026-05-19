@@ -484,8 +484,11 @@ class CookingGameHandler:
 
 
 if __name__ == "__main__":
-    SSID = "Khanzeba"
-    PASSWORD = "786786786786A"
+    SSID = ""
+    PASSWORD = ""
 
-    game = CookingGameHandler()
-    game.run(SSID, PASSWORD, 8000)
+    if not SSID or not PASSWORD:
+        print("Set SSID and PASSWORD in app/cooking_game_led_server.py before running.")
+    else:
+        game = CookingGameHandler()
+        game.run(SSID, PASSWORD, 8000)
