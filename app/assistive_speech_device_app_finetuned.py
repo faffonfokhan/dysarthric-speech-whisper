@@ -236,6 +236,7 @@ class App:
         self.led_mode = "loading"
         self.led_tick = 0
         self.led_items = []
+        self.led_after_id = None
         
         self.q = queue.Queue()
         
@@ -353,7 +354,8 @@ class App:
         footer = tk.Frame(self.root, bg="#ecf0f1")
         footer.pack(fill=tk.X, pady=5)
         tk.Label(footer, text="CityUHK GEF2024 | faffonfokhan | 2025-11-14", font=("Arial", 8), bg="#ecf0f1", fg="#7f8c8d").pack()
-       
+        
+        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
         logging.info("✅ UI built")
    
     def init_tts(self):
@@ -378,7 +380,7 @@ class App:
         self.led_mode = mode
         self.led_tick = 0
 
-    def _mix(self, base, target, intensity):
+    def _blend_colors(self, base, target, intensity):
         intensity = max(0.0, min(1.0, intensity))
         return "#" + "".join(
             f"{int(start + ((end - start) * intensity)):02x}"
@@ -405,16 +407,23 @@ class App:
             active = [1.0] * len(self.led_items)
         elif mode in {"loading", "processing"}:
             active[self.led_tick % len(self.led_items)] = 1.0
-            active[(self.led_tick - 1) % len(self.led_items)] = 0.55
+            if self.led_tick > 0:
+                active[(self.led_tick - 1) % len(self.led_items)] = 0.55
         else:
             pulse = 0.45 + (0.45 * abs((self.led_tick % 8) - 4) / 4)
             active = [pulse] * len(self.led_items)
 
         for item, intensity in zip(self.led_items, active):
-            self.led_canvas.itemconfig(item, fill=self._mix(off, target, intensity))
+            self.led_canvas.itemconfig(item, fill=self._blend_colors(off, target, intensity))
 
         self.led_tick += 1
-        self.root.after(120, self.animate_leds)
+        self.led_after_id = self.root.after(120, self.animate_leds)
+
+    def on_close(self):
+        if self.led_after_id is not None:
+            self.root.after_cancel(self.led_after_id)
+            self.led_after_id = None
+        self.root.destroy()
     
     def init_asr(self):
         self.q.put(("status", "Loading model... (30-60s)"))
