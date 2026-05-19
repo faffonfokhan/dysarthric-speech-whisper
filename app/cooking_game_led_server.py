@@ -371,8 +371,6 @@ class CookingGameHandler:
             data += chunk
 
         headers_end = data.find(b"\r\n\r\n")
-        if headers_end > self.MAX_HEADER_SIZE:
-            raise ValueError("request headers too large")
         headers = data[:headers_end].decode("utf-8", "ignore")
         content_length = 0
 
@@ -387,16 +385,16 @@ class CookingGameHandler:
             raise ValueError("request body too large")
 
         body_start = headers_end + 4
+        header_bytes = data[:body_start]
         body = data[body_start:]
 
         while len(body) < content_length:
             chunk = client_socket.recv(1024)
             if not chunk:
                 break
-            data += chunk
             body += chunk
 
-        return data
+        return header_bytes + body
 
     def handle_led_post(self, client_socket, request_data):
         try:
@@ -501,11 +499,14 @@ class CookingGameHandler:
 
 
 if __name__ == "__main__":
-    WIFI_SSID = ""
-    WIFI_PASSWORD = ""
+    try:
+        from cooking_game_led_config import WIFI_SSID, WIFI_PASSWORD
+    except ImportError:
+        WIFI_SSID = ""
+        WIFI_PASSWORD = ""
 
     if not WIFI_SSID or not WIFI_PASSWORD:
-        print("Set WIFI_SSID and WIFI_PASSWORD in app/cooking_game_led_server.py before running.")
+        print("Create app/cooking_game_led_config.py with WIFI_SSID and WIFI_PASSWORD before running.")
     else:
         game = CookingGameHandler()
         game.run(WIFI_SSID, WIFI_PASSWORD, 8000)
