@@ -233,14 +233,18 @@ class App:
         self.tts = None
         self.asr = None
         self.audio = None
-       
+        self.led_mode = "loading"
+        self.led_tick = 0
+        self.led_items = []
+        
         self.q = queue.Queue()
-       
+        
         self.build_ui()
+        self.animate_leds()
         self.root.after(100, self.init_tts)
         threading.Thread(target=self.init_asr, daemon=True).start()
         self.root.after(50, self.update)
-   
+    
     def build_ui(self):
         # Header
         header = tk.Frame(self.root, bg="#2c3e50", height=70)
@@ -258,7 +262,16 @@ class App:
         # Status
         self.status = tk.StringVar(value="Initializing...")
         tk.Label(self.root, textvariable=self.status, font=("Arial", 10)).pack(pady=5)
-       
+
+        activity = tk.Frame(self.root)
+        activity.pack(pady=(0, 8))
+        tk.Label(activity, text="Activity LED", font=("Arial", 10, "bold"), fg="#34495e").pack(side=tk.LEFT, padx=(0, 10))
+        self.led_canvas = tk.Canvas(activity, width=150, height=24, bg=self.root.cget("bg"), highlightthickness=0)
+        self.led_canvas.pack(side=tk.LEFT)
+        for index in range(5):
+            x0 = 8 + (index * 28)
+            self.led_items.append(self.led_canvas.create_oval(x0, 4, x0 + 16, 20, fill="#d5d8dc", outline="#bdc3c7"))
+        
         # Model info
         self.model_info = tk.StringVar(value="Loading model...")
         info_frame = tk.Frame(self.root, bg="#ecf0f1", relief=tk.RIDGE, bd=2)
@@ -346,7 +359,7 @@ class App:
     def init_tts(self):
         logging.info("Initializing TTS...")
         self.tts_status.set("Loading TTS...")
-       
+        
         try:
             self.tts = BulletproofTTS()
            
@@ -360,10 +373,52 @@ class App:
         except Exception as e:
             logging.error(f"TTS init error: {e}")
             self.tts_status.set(f"❌ TTS Error")
-   
+
+    def set_led_mode(self, mode):
+        self.led_mode = mode
+        self.led_tick = 0
+
+    def _mix(self, base, target, intensity):
+        intensity = max(0.0, min(1.0, intensity))
+        return "#" + "".join(
+            f"{int(start + ((end - start) * intensity)):02x}"
+            for start, end in zip(base, target)
+        )
+
+    def animate_leds(self):
+        off = (213, 216, 220)
+        palette = {
+            "loading": (241, 196, 15),
+            "ready": (46, 204, 113),
+            "recording": (231, 76, 60),
+            "processing": (52, 152, 219),
+            "speaking": (230, 126, 34),
+            "error": (192, 57, 43),
+        }
+        mode = self.led_mode if self.led_mode in palette else "loading"
+        target = palette[mode]
+        active = [0.18] * len(self.led_items)
+
+        if mode == "ready":
+            active = [0.18, 0.3, 1.0, 0.3, 0.18]
+        elif mode == "error":
+            active = [1.0] * len(self.led_items)
+        elif mode in {"loading", "processing"}:
+            active[self.led_tick % len(self.led_items)] = 1.0
+            active[(self.led_tick - 1) % len(self.led_items)] = 0.55
+        else:
+            pulse = 0.45 + (0.45 * abs((self.led_tick % 8) - 4) / 4)
+            active = [pulse] * len(self.led_items)
+
+        for item, intensity in zip(self.led_items, active):
+            self.led_canvas.itemconfig(item, fill=self._mix(off, target, intensity))
+
+        self.led_tick += 1
+        self.root.after(120, self.animate_leds)
+    
     def init_asr(self):
         self.q.put(("status", "Loading model... (30-60s)"))
-       
+        
         try:
             self.asr = FineTunedASR()
             self.audio = AudioProc()
@@ -371,6 +426,7 @@ class App:
             info = self.asr.get_model_info()
            
             self.q.put(("status", "✅ Model ready!"))
+            self.q.put(("led", "ready"))
             self.q.put(("model_info",
                 f"Model: {info['checkpoint']} | "
                 f"Type: {info['type']} | "
@@ -383,6 +439,7 @@ class App:
         except FileNotFoundError as e:
             logging.error(f"Model not found: {e}")
             self.q.put(("status", "❌ Model not found!"))
+            self.q.put(("led", "error"))
             self.q.put(("model_info", "Run: python step6_convert_checkpoint.py --checkpoint checkpoint-1000"))
             messagebox.showerror(
                 "Model Not Found",
@@ -393,16 +450,18 @@ class App:
         except Exception as e:
             logging.error(f"ASR error: {e}")
             self.q.put(("status", f"❌ Error: {e}"))
+            self.q.put(("led", "error"))
             self.q.put(("model_info", "Failed to load - see console"))
-   
+    
     def test(self):
         if not self.tts or not self.tts.available:
             messagebox.showerror("Error", "TTS not available")
             return
-       
+        
         self.test_btn.config(state=tk.DISABLED)
         self.speak_btn.config(state=tk.DISABLED)
-       
+        self.set_led_mode("speaking")
+        
         def do():
             success = 0
             for i in range(1, 4):
@@ -412,16 +471,18 @@ class App:
                 else:
                     break
                 time.sleep(0.5)
-           
+            
             if success == 3:
                 self.q.put(("status", "✅ All tests passed!"))
+                self.q.put(("led", "ready"))
                 messagebox.showinfo("Success", "TTS works!")
             else:
                 self.q.put(("status", f"❌ {success}/3 passed"))
-           
+                self.q.put(("led", "error"))
+            
             self.test_btn.config(state=tk.NORMAL)
             self.speak_btn.config(state=tk.NORMAL)
-       
+        
         threading.Thread(target=do, daemon=True).start()
    
     def speak(self):
@@ -439,15 +500,18 @@ class App:
         self.speak_btn.config(state=tk.DISABLED)
         self.test_btn.config(state=tk.DISABLED)
         self.stop_btn.config(state=tk.NORMAL)
-       
+        self.set_led_mode("speaking")
+        
         def do():
             self.q.put(("status", "🔊 Speaking..."))
             success = self.tts.speak(text)
             if success:
                 self.q.put(("status", "✅ Done"))
+                self.q.put(("led", "ready"))
             else:
                 self.q.put(("status", "❌ Failed"))
-           
+                self.q.put(("led", "error"))
+            
             self.speak_btn.config(state=tk.NORMAL)
             self.test_btn.config(state=tk.NORMAL)
             self.stop_btn.config(state=tk.DISABLED)
@@ -460,35 +524,41 @@ class App:
         self.speak_btn.config(state=tk.NORMAL)
         self.test_btn.config(state=tk.NORMAL)
         self.stop_btn.config(state=tk.DISABLED)
-   
+        self.set_led_mode("ready")
+    
     def record(self):
         self.rec_btn.config(state=tk.DISABLED)
         self.file_btn.config(state=tk.DISABLED)
-       
+        self.set_led_mode("recording")
+        
         def do():
             try:
                 self.q.put(("status", "🎤 Recording 10s..."))
                 audio = self.audio.record(10)
                 self.q.put(("status", "Transcribing..."))
+                self.q.put(("led", "processing"))
                 text = self.asr.transcribe(audio)
                 self.q.put(("append", f"\n[Recorded {time.strftime('%H:%M:%S')}]\n{text}\n"))
                 self.q.put(("status", "✅ Done"))
+                self.q.put(("led", "ready"))
             except Exception as e:
                 self.q.put(("status", f"❌ {e}"))
+                self.q.put(("led", "error"))
             finally:
                 self.rec_btn.config(state=tk.NORMAL)
                 self.file_btn.config(state=tk.NORMAL)
-       
+        
         threading.Thread(target=do, daemon=True).start()
    
     def load(self):
         path = filedialog.askopenfilename(filetypes=[("Audio", "*.wav *.mp3 *.m4a *.flac")])
         if not path:
             return
-       
+        
         self.rec_btn.config(state=tk.DISABLED)
         self.file_btn.config(state=tk.DISABLED)
-       
+        self.set_led_mode("processing")
+        
         def do():
             try:
                 self.q.put(("status", f"Loading {Path(path).name}..."))
@@ -497,12 +567,14 @@ class App:
                 text = self.asr.transcribe(audio)
                 self.q.put(("append", f"\n[File: {Path(path).name}]\n{text}\n"))
                 self.q.put(("status", "✅ Done"))
+                self.q.put(("led", "ready"))
             except Exception as e:
                 self.q.put(("status", f"❌ {e}"))
+                self.q.put(("led", "error"))
             finally:
                 self.rec_btn.config(state=tk.NORMAL)
                 self.file_btn.config(state=tk.NORMAL)
-       
+        
         threading.Thread(target=do, daemon=True).start()
    
     def clear(self):
@@ -534,6 +606,8 @@ class App:
                     self.status.set(data)
                 elif msg == "model_info":
                     self.model_info.set(data)
+                elif msg == "led":
+                    self.set_led_mode(data)
                 elif msg == "append":
                     self.text.insert(tk.END, data)
                     self.text.see(tk.END)
