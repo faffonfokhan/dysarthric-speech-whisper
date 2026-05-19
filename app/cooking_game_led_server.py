@@ -11,6 +11,7 @@ class CookingGameHandler:
     HEIGHT = 16
     NUM_LEDS = WIDTH * HEIGHT
     LED_PIN = 15
+    MAX_WIFI_RETRIES = 20
 
     # Most 16x16 NeoPixel matrices are wired serpentine.
     SERPENTINE = True
@@ -167,6 +168,12 @@ class CookingGameHandler:
   <script>
     const WIDTH = 16;
     const HEIGHT = 16;
+    const PULSE_BASE = 20;
+    const PULSE_RANGE = 180;
+    const PULSE_DIVISOR = 2;
+    const SNAKE_LENGTH = 18;
+    const SNAKE_MIN_FADE = 30;
+    const SNAKE_FADE_STEP = 14;
     const preview = document.getElementById("preview");
     const statusEl = document.getElementById("status");
     let timer = null;
@@ -285,7 +292,7 @@ class CookingGameHandler:
 
     function pulse(frame) {
       const pixels = [];
-      const value = Math.round((Math.sin(frame / 2) * 0.5 + 0.5) * 180) + 20;
+      const value = Math.round((Math.sin(frame / PULSE_DIVISOR) * 0.5 + 0.5) * PULSE_RANGE) + PULSE_BASE;
       for (let y = 0; y < HEIGHT; y++) {
         for (let x = 0; x < WIDTH; x++) {
           pixels.push({ x, y, r: value, g: Math.round(value * 0.4), b: 0 });
@@ -297,11 +304,11 @@ class CookingGameHandler:
     function snake(frame) {
       const pixels = [];
       const head = frame % (WIDTH * HEIGHT);
-      for (let i = 0; i < 18; i++) {
+      for (let i = 0; i < SNAKE_LENGTH; i++) {
         const index = (head - i + WIDTH * HEIGHT) % (WIDTH * HEIGHT);
         const x = index % WIDTH;
         const y = Math.floor(index / WIDTH);
-        const fade = Math.max(30, 255 - i * 14);
+        const fade = Math.max(SNAKE_MIN_FADE, 255 - i * SNAKE_FADE_STEP);
         pixels.push({ x, y, r: 0, g: fade, b: Math.round(fade * 0.25) });
       }
       return pixels;
@@ -320,7 +327,7 @@ class CookingGameHandler:
             wlan.connect(ssid, password)
 
             print("Connecting to WiFi...")
-            for _ in range(20):
+            for _ in range(self.MAX_WIFI_RETRIES):
                 if wlan.isconnected():
                     ip = wlan.ifconfig()[0]
                     print("Connected! IP:", ip)
